@@ -1,28 +1,45 @@
 package paint;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Observable;
 
 public class PaintModel extends Observable {
-	private ArrayList<Point> points=new ArrayList<Point>();
-	private ArrayList<Circle> circles=new ArrayList<Circle>();
+	private CommandInvoker commandInvoker = new CommandInvoker();	// command stack
+	private ArrayList<Shape> shapes = new ArrayList<Shape>();		// logical shapes	
 	
-	
-	public void addPoint(Point p){
-		this.points.add(p);
+	public CommandInvoker getCommandInvoker() {
+		return commandInvoker;
+	}
+
+	public void addShape(Shape s) {
+		this.commandInvoker.add(new PaintCommand(s));
+		this.shapes.add(s);
 		this.setChanged();
 		this.notifyObservers();
 	}
-	public ArrayList<Point> getPoints(){
-		return points;
+	
+	public ArrayList<Shape> getShapes() {
+		return this.shapes;
 	}
 	
-	public void addCircle(Circle c){
-		this.circles.add(c);
+	public void clearCanvas() {
+		commandInvoker = new CommandInvoker();
+		shapes = new ArrayList<Shape>();		
+		ColorChooserPanel.setBGColor(Color.WHITE);
 		this.setChanged();
 		this.notifyObservers();
 	}
-	public ArrayList<Circle> getCircles(){
-		return circles;
+	
+	public void clearDrawings() {
+		commandInvoker = new CommandInvoker();
+		shapes = new ArrayList<Shape>();		
+		this.setChanged();
+		this.notifyObservers();
+	}
+	
+	public void resetShapeBox() {
+		for(Shape s : shapes) s.setShowShapeBox(false);
 	}
 }
+

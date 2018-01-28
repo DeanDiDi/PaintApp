@@ -2,72 +2,45 @@ package paint;
 
 import javax.swing.*;  
 import java.awt.*;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.util.ArrayList;
-import java.util.Observable;
-import java.util.Observer;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.util.*;
 
 // https://docs.oracle.com/javase/8/docs/api/java/awt/Graphics2D.html
 // https://docs.oracle.com/javase/tutorial/2d/
 
-class PaintPanel extends JPanel implements Observer, MouseMotionListener, MouseListener  {
-	private int i=0;
+class PaintPanel extends JPanel implements Observer, MouseMotionListener, MouseListener, KeyListener  {
+
 	private PaintModel model; // slight departure from MVC, because of the way painting works
 	private View view; // So we can talk to our parent or other components of the view
+	private ShapeManipulatorStrategy mode = new ManipulatorSquiggleStrategy();
 
-	private String mode; // modifies how we interpret input (could be better?)
-	private Circle circle; // the circle we are building
-	
 	public PaintPanel(PaintModel model, View view){
-		this.setBackground(Color.blue);
-		this.setPreferredSize(new Dimension(300,300));
+		this.setBackground(Color.WHITE);
+		this.setPreferredSize(new Dimension(500,500));
 		this.addMouseListener(this);
 		this.addMouseMotionListener(this);
-		
-		this.mode="Circle"; // bad code here?
-		
+		this.addKeyListener(this);
+		setFocusable(true);
 		this.model = model;
 		this.model.addObserver(this);
-		
 		this.view=view;
 	}
-
-	/**
-	 *  View aspect of this
-	 */
+	
+	// View aspect of this
+	@Override
 	public void paintComponent(Graphics g) {
-		// Use g to draw on the JPanel, lookup java.awt.Graphics in
-		// the javadoc to see more of what this can do for you!!
-		
-        super.paintComponent(g); //paint background
-        Graphics2D g2d = (Graphics2D) g; // lets use the advanced api
-		// setBackground (Color.blue); 
-		// Origin is at the top left of the window 50 over, 75 down
-		g2d.setColor(Color.white);
-        g2d.drawString ("i="+i, 50, 75);
-		i=i+1;
-
-		// Draw Lines
-		ArrayList<Point> points = this.model.getPoints();
-		for(int i=0;i<points.size()-1; i++){
-			Point p1=points.get(i);
-			Point p2=points.get(i+1);
-			g2d.drawLine(p1.getX(), p1.getY(), p2.getX(), p2.getY());
-		}
-		
-		// Draw Circles
-		ArrayList<Circle> circles = this.model.getCircles();
-		for(Circle c: this.model.getCircles()){
-			int x = c.getCentre().getX();
-			int y = c.getCentre().getY();
-			int radius = c.getRadius();
-			g2d.drawOval(x, y, radius, radius);
-		}
-		
+		super.paintComponent(g); 								//paint background
+        Graphics2D g2d = (Graphics2D) g; 						// lets use the advanced api
+        super.setBackground(ColorChooserPanel.getBGColor());
+        if(this.view.getisBGimage()) {
+        	g.drawImage(this.view.getFilePNG(), 0, 0, null);
+        }     // Origin is at the top left of the window 50 over, 75 down
+		g2d.setColor(Color.WHITE);
+		this.model.getCommandInvoker().executeAll(g2d); // Draw all shapes
 		g2d.dispose();
 	}
+	
 
 	@Override
 	public void update(Observable o, Object arg) {
@@ -75,84 +48,64 @@ class PaintPanel extends JPanel implements Observer, MouseMotionListener, MouseL
 		this.repaint(); // Schedule a call to paintComponent
 	}
 	
-	/**
-	 *  Controller aspect of this
-	 */
-	public void setMode(String mode){
-		this.mode=mode;
+	//Controller aspect of this
+	public void setMode(ShapeManipulatorStrategy mode){
+		this.mode = mode;
+	}
+	
+	public void resetShapeBox() {
+		model.resetShapeBox();
+		this.repaint();
 	}
 	
 	// MouseMotionListener below
-	@Override
 	public void mouseMoved(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			
-		}
-	}
-	@Override
-	public void mouseDragged(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			this.model.addPoint(new Point(e.getX(), e.getY()));
-		} else if(this.mode=="Circle"){
-			
-		}
+		this.mode.mouseMoved(new Point(e.getX(), e.getY()), this.view);
+
 	}
 
-	// MouseListener below
+	@Override
+	public void mouseDragged(MouseEvent e) {
+		this.mode.mouseDragged(new Point(e.getX(), e.getY()), this.view);
+	}
+
 	@Override
 	public void mouseClicked(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			
-		}
+		this.mode.mouseClicked(new Point(e.getX(), e.getY()), this.view, this.model);
 	}
 
 	@Override
 	public void mousePressed(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			// Problematic notion of radius and centre!!
-			Point centre = new Point(e.getX(), e.getY());
-			int radius = 0;
-			this.circle=new Circle(centre, 0);
-		}
+		this.mode.mousePressed(new Point(e.getX(), e.getY()) ,this.view, this.model);
 	}
-
+	
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			if(this.circle!=null){
-				// Problematic notion of radius and centre!!
-				int radius = Math.abs(this.circle.getCentre().getX()-e.getX());
-				this.circle.setRadius(radius);
-				this.model.addCircle(this.circle);
-				this.circle=null;
-			}
-		}
+		this.mode.mouseReleased(new Point(e.getX(), e.getY()),this.view, this.model);
+	}
+	
+	@Override
+	public void mouseEntered(MouseEvent e) {
+	}
+	
+	@Override
+	public void mouseExited(MouseEvent e) {
+	}
+
+	
+	public void keyPressed(KeyEvent e) { 
+		this.mode.keyPressed(e, this.view, this.model);
 		
 	}
 
-	@Override
-	public void mouseEntered(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			
-		}
+
+	public void keyReleased(KeyEvent e) {
+		
 	}
 
-	@Override
-	public void mouseExited(MouseEvent e) {
-		if(this.mode=="Squiggle"){
-			
-		} else if(this.mode=="Circle"){
-			
-		}
+	
+	public void keyTyped(KeyEvent e) {
+		// TODO Auto-generated method stub
+		
 	}
 }
